@@ -40,7 +40,7 @@ public class WebConfig implements WebMvcConfigurer {
         SortHandlerMethodArgumentResolver sortResolver = new SortHandlerMethodArgumentResolver();
         sortResolver.setSortParameter("order");
 
-        PageableHandlerMethodArgumentResolver pageResolver = new PageableHandlerMethodArgumentResolver(sortResolver);
+        PageableHandlerMethodArgumentResolver pageResolver = new PageableHandlerMethodArgumentResolver(null);
         pageResolver.setPageParameterName("pageNumber");
         pageResolver.setSizeParameterName("pageSize");
 

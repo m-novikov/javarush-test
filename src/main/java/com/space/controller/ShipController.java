@@ -1,21 +1,19 @@
 package com.space.controller;
 
 import com.space.model.Ship;
-import com.space.model.ShipType;
-import com.space.repository.ShipRepository;
 import com.space.service.ShipService;
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import static org.springframework.web.bind.annotation.RequestMethod.GET;
-
 @RestController
+@RequestMapping("/rest/ships")
 public class ShipController {
     private final ShipService service;
 
@@ -23,12 +21,27 @@ public class ShipController {
         this.service = service;
     }
 
-    @RequestMapping(value="/rest/ships", method=GET)
-    public List<Ship> getShips(ShipService.ShipQuery query, Pageable pageable) {
+    @GetMapping
+    public List<Ship> getShips(ShipService.ShipQuery query,
+                               ShipOrder order,
+                               @PageableDefault(value=3, page=0) Pageable pageable) {
+
+        if (order != null) {
+            pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(order.getFieldName()));
+        }
+        System.out.printf("query: " + query);
         return service.findAll(query, pageable).getContent();
     }
 
-    @RequestMapping(value="/rest/ships/count", method=GET)
+    @GetMapping(value="/{id}")
+    public Ship getShipCount(@PathVariable Long id) {
+        if (id == null || id <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
+        return service.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    @GetMapping(value="/count")
     public long getShipCount(ShipService.ShipQuery query) {
         return service.count(query);
     }

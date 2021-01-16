@@ -4,9 +4,13 @@ import com.space.model.Ship;
 import com.space.model.ShipType;
 import com.space.repository.ShipRepository;
 import com.sun.istack.internal.NotNull;
+import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 @Service
 public class ShipService {
@@ -67,11 +71,11 @@ public class ShipService {
             this.before = before;
         }
 
-        public Boolean getUsed() {
+        public Boolean getIsUsed() {
             return isUsed;
         }
 
-        public void setUsed(Boolean used) {
+        public void setIsUsed(Boolean used) {
             isUsed = used;
         }
 
@@ -146,15 +150,34 @@ public class ShipService {
     public ShipService(ShipRepository repository) {
         this.repository = repository;
     }
+    private Specification<Ship> convertQueryToSpec(@NotNull ShipQuery query) {
+        Specification<Ship> spec = Specification.where(null);
+        if (query.getName() != null) spec = spec.and(ShipSpecs.byName(query.getName()));
+        if (query.getPlanet() != null) spec = spec.and(ShipSpecs.byPlanet(query.getPlanet()));
+        if (query.getShipType() != null) spec = spec.and(ShipSpecs.byShipType(query.getShipType()));
+        if (query.getIsUsed() != null) spec = spec.and(ShipSpecs.byIsUsed(query.getIsUsed()));
+        if (query.getAfter() != null) spec = spec.and(ShipSpecs.afterProdDate(query.getAfter()));
+        if (query.getBefore() != null) spec = spec.and(ShipSpecs.beforeProdDate(query.getBefore()));
+        if (query.getMinSpeed() != null) spec = spec.and(ShipSpecs.withMinSpeed(query.getMinSpeed()));
+        if (query.getMaxSpeed() != null) spec = spec.and(ShipSpecs.withMaxSpeed(query.getMaxSpeed()));
+        if (query.getMinCrewSize() != null) spec = spec.and(ShipSpecs.withMinCrewSize(query.getMinCrewSize()));
+        if (query.getMaxCrewSize() != null) spec = spec.and(ShipSpecs.withMaxCrewSize(query.getMaxCrewSize()));
+        if (query.getMinRating() != null) spec = spec.and(ShipSpecs.withMinRating(query.getMinRating()));
+        if (query.getMaxRating() != null) spec = spec.and(ShipSpecs.withMaxRating(query.getMaxRating()));
+        return spec;
+    }
 
     public Page<Ship> findAll(@NotNull ShipQuery query, @NotNull Pageable pageable) {
-        System.out.println("findAll: " + query);
-        System.out.println("page: " + pageable);
-        return repository.findAll(pageable);
+        Specification<Ship> spec = convertQueryToSpec(query);
+        return repository.findAll(spec, pageable);
     }
 
     public long count(@NotNull ShipQuery query) {
-        System.out.println("count: " + query);
-        return repository.count();
+        Specification<Ship> spec = convertQueryToSpec(query);
+        return repository.count(spec);
+    }
+
+    public Optional<Ship> findById(@NotNull Long id) {
+        return repository.findById(id);
     }
 }
