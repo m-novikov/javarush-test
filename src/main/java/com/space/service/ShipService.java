@@ -1,156 +1,27 @@
 package com.space.service;
 
+import com.space.controller.dto.ShipQueryDTO;
 import com.space.model.Ship;
-import com.space.model.ShipType;
 import com.space.repository.ShipRepository;
 import com.sun.istack.internal.NotNull;
-import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
+import javax.persistence.criteria.CriteriaBuilder;
 import java.util.Optional;
 
 @Service
 public class ShipService {
-    public static final class ShipQuery {
-        private String name;
-        private String planet;
-        private ShipType shipType;
-        private Long after;
-        private Long before;
-        private Boolean isUsed;
-        private Double minSpeed;
-        private Double maxSpeed;
-        private Integer minCrewSize;
-        private Integer maxCrewSize;
-        private Double minRating;
-        private Double maxRating;
-
-        public ShipQuery() {
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public String getPlanet() {
-            return planet;
-        }
-
-        public void setPlanet(String planet) {
-            this.planet = planet;
-        }
-
-        public ShipType getShipType() {
-            return shipType;
-        }
-
-        public void setShipType(ShipType shipType) {
-            this.shipType = shipType;
-        }
-
-        public Long getAfter() {
-            return after;
-        }
-
-        public void setAfter(Long after) {
-            this.after = after;
-        }
-
-        public Long getBefore() {
-            return before;
-        }
-
-        public void setBefore(Long before) {
-            this.before = before;
-        }
-
-        public Boolean getIsUsed() {
-            return isUsed;
-        }
-
-        public void setIsUsed(Boolean used) {
-            isUsed = used;
-        }
-
-        public Double getMinSpeed() {
-            return minSpeed;
-        }
-
-        public void setMinSpeed(Double minSpeed) {
-            this.minSpeed = minSpeed;
-        }
-
-        public Double getMaxSpeed() {
-            return maxSpeed;
-        }
-
-        public void setMaxSpeed(Double maxSpeed) {
-            this.maxSpeed = maxSpeed;
-        }
-
-        public Integer getMinCrewSize() {
-            return minCrewSize;
-        }
-
-        public void setMinCrewSize(Integer minCrewSize) {
-            this.minCrewSize = minCrewSize;
-        }
-
-        public Integer getMaxCrewSize() {
-            return maxCrewSize;
-        }
-
-        public void setMaxCrewSize(Integer maxCrewSize) {
-            this.maxCrewSize = maxCrewSize;
-        }
-
-        public Double getMinRating() {
-            return minRating;
-        }
-
-        public void setMinRating(Double minRating) {
-            this.minRating = minRating;
-        }
-
-        public Double getMaxRating() {
-            return maxRating;
-        }
-
-        public void setMaxRating(Double maxRating) {
-            this.maxRating = maxRating;
-        }
-
-        @Override
-        public String toString() {
-            return "ShipQuery{" +
-                    "name='" + name + '\'' +
-                    ", planet='" + planet + '\'' +
-                    ", shipType=" + shipType +
-                    ", after=" + after +
-                    ", before=" + before +
-                    ", isUsed=" + isUsed +
-                    ", minSpeed=" + minSpeed +
-                    ", maxSpeed=" + maxSpeed +
-                    ", minCrewSize=" + minCrewSize +
-                    ", maxCrewSize=" + maxCrewSize +
-                    ", minRating=" + minRating +
-                    ", maxRating=" + maxRating +
-                    '}';
-        }
-    }
+    public static final class InvalidShipException extends Exception {}
+    public static final class ShipNotFoundException extends Exception {}
     private final ShipRepository repository;
 
     public ShipService(ShipRepository repository) {
         this.repository = repository;
     }
-    private Specification<Ship> convertQueryToSpec(@NotNull ShipQuery query) {
+    private Specification<Ship> convertQueryToSpec(@NotNull ShipQueryDTO query) {
         Specification<Ship> spec = Specification.where(null);
         if (query.getName() != null) spec = spec.and(ShipSpecs.byName(query.getName()));
         if (query.getPlanet() != null) spec = spec.and(ShipSpecs.byPlanet(query.getPlanet()));
@@ -167,17 +38,76 @@ public class ShipService {
         return spec;
     }
 
-    public Page<Ship> findAll(@NotNull ShipQuery query, @NotNull Pageable pageable) {
+    public Page<Ship> findAll(@NotNull ShipQueryDTO query, @NotNull Pageable pageable) {
         Specification<Ship> spec = convertQueryToSpec(query);
         return repository.findAll(spec, pageable);
     }
 
-    public long count(@NotNull ShipQuery query) {
+    public long count(@NotNull ShipQueryDTO query) {
         Specification<Ship> spec = convertQueryToSpec(query);
         return repository.count(spec);
     }
 
-    public Optional<Ship> findById(@NotNull Long id) {
-        return repository.findById(id);
+    private void validateStringOfLength50(String str) throws InvalidShipException {
+        if (str == null || "".equals(str) || str.length() > 50) throw new InvalidShipException();
+    }
+
+    private void validateYear(Integer year) throws InvalidShipException {
+        if (year == null || 2800 > year || year > 3019) throw new InvalidShipException();
+    }
+
+    private void validateCrewSize(Integer size) throws InvalidShipException {
+        if (size == null || 1 > size || size > 9999) throw new InvalidShipException();
+    }
+
+    private Double validateSpeed(Double speed) throws InvalidShipException {
+        if (speed == null) {
+            throw new InvalidShipException();
+        } else {
+            Double roundedSpeed = Math.round(speed * 100.0) / 100.0;
+            if (0.01 > roundedSpeed || roundedSpeed > 0.99) throw new InvalidShipException();
+            return roundedSpeed;
+        }
+    }
+
+    private void validateShip(Ship ship) throws InvalidShipException {
+        validateStringOfLength50(ship.getName());
+        validateStringOfLength50(ship.getPlanet());
+        validateYear(ship.getYear());
+        validateCrewSize(ship.getCrewSize());
+        ship.setSpeed(validateSpeed(ship.getSpeed()));
+        if (ship.getIsUsed() == null) {
+            ship.setIsUsed(false);
+        }
+        double k = ship.getIsUsed() ? 0.5 : 1;
+        double rating = 80 * ship.getSpeed() * k / (3019 - ship.getYear() + 1);
+        ship.setRating(Math.round(rating * 100.0) / 100.0);
+    }
+
+    public Ship createShip(Ship ship) throws InvalidShipException {
+        validateShip(ship);
+        return repository.save(ship);
+    }
+
+    public Ship updateShip(Long id, Ship newShip) throws InvalidShipException, ShipNotFoundException {
+        Ship ship = repository.findById(id).orElseThrow(() -> new ShipNotFoundException());
+        if (newShip.getName() != null) ship.setName(newShip.getName());
+        if (newShip.getPlanet() != null) ship.setPlanet(newShip.getPlanet());
+        if (newShip.getShipType() != null) ship.setShipType(newShip.getShipType());
+        if (newShip.getProdDate() != null) ship.setProdDate(newShip.getProdDate());
+        if (newShip.getIsUsed() != null) ship.setIsUsed(newShip.getIsUsed());
+        if (newShip.getSpeed() != null) ship.setSpeed(newShip.getSpeed());
+        if (newShip.getCrewSize() != null) ship.setCrewSize(newShip.getCrewSize());
+        validateShip(ship);
+        return repository.save(ship);
+    }
+
+    public Ship findById(@NotNull Long id) throws ShipNotFoundException {
+        return repository.findById(id).orElseThrow(() -> new ShipNotFoundException());
+    }
+
+    public void deleteById(@NotNull Long id) throws ShipNotFoundException {
+        if (!repository.existsById(id)) throw new ShipNotFoundException();
+        repository.deleteById(id);
     }
 }

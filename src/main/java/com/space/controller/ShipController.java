@@ -1,5 +1,6 @@
 package com.space.controller;
 
+import com.space.controller.dto.ShipQueryDTO;
 import com.space.model.Ship;
 import com.space.service.ShipService;
 import org.springframework.data.domain.PageRequest;
@@ -22,27 +23,67 @@ public class ShipController {
     }
 
     @GetMapping
-    public List<Ship> getShips(ShipService.ShipQuery query,
+    public List<Ship> getShips(ShipQueryDTO query,
                                ShipOrder order,
                                @PageableDefault(value=3, page=0) Pageable pageable) {
 
         if (order != null) {
             pageable = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(order.getFieldName()));
         }
-        System.out.printf("query: " + query);
         return service.findAll(query, pageable).getContent();
     }
 
-    @GetMapping(value="/{id}")
-    public Ship getShipCount(@PathVariable Long id) {
+    @PostMapping
+    public Ship createShip(@RequestBody Ship ship) {
+        try {
+            return service.createShip(ship);
+        } catch (ShipService.InvalidShipException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    @PostMapping(value="/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public Ship updateShip(@PathVariable Long id, @RequestBody Ship ship) {
         if (id == null || id <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
         }
-        return service.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        try {
+            return service.updateShip(id, ship);
+        } catch (ShipService.InvalidShipException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        } catch (ShipService.ShipNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    @GetMapping(value="/{id}")
+    public Ship getSingleShip(@PathVariable Long id) {
+        if (id == null || id <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
+        try {
+            return service.findById(id);
+        } catch (ShipService.ShipNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
     }
 
     @GetMapping(value="/count")
-    public long getShipCount(ShipService.ShipQuery query) {
+    public long getShipCount(ShipQueryDTO query) {
         return service.count(query);
+    }
+
+    @DeleteMapping(value="/{id}")
+    public void deleteShip(@PathVariable Long id) {
+        if (id == null || id <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
+        try {
+            service.deleteById(id);
+        } catch (ShipService.ShipNotFoundException e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
     }
 }
