@@ -3,7 +3,6 @@ package com.space.service;
 import com.space.controller.dto.ShipQueryDTO;
 import com.space.model.Ship;
 import com.space.repository.ShipRepository;
-import com.sun.istack.internal.NotNull;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -21,7 +20,7 @@ public class ShipService {
     public ShipService(ShipRepository repository) {
         this.repository = repository;
     }
-    private Specification<Ship> convertQueryToSpec(@NotNull ShipQueryDTO query) {
+    private Specification<Ship> convertQueryToSpec(ShipQueryDTO query) {
         Specification<Ship> spec = Specification.where(null);
         if (query.getName() != null) spec = spec.and(ShipSpecs.byName(query.getName()));
         if (query.getPlanet() != null) spec = spec.and(ShipSpecs.byPlanet(query.getPlanet()));
@@ -38,12 +37,12 @@ public class ShipService {
         return spec;
     }
 
-    public Page<Ship> findAll(@NotNull ShipQueryDTO query, @NotNull Pageable pageable) {
+    public Page<Ship> findAll(ShipQueryDTO query, Pageable pageable) {
         Specification<Ship> spec = convertQueryToSpec(query);
         return repository.findAll(spec, pageable);
     }
 
-    public long count(@NotNull ShipQueryDTO query) {
+    public long count(ShipQueryDTO query) {
         Specification<Ship> spec = convertQueryToSpec(query);
         return repository.count(spec);
     }
@@ -102,11 +101,11 @@ public class ShipService {
         return repository.save(ship);
     }
 
-    public Ship findById(@NotNull Long id) throws ShipNotFoundException {
+    public Ship findById(Long id) throws ShipNotFoundException {
         return repository.findById(id).orElseThrow(() -> new ShipNotFoundException());
     }
 
-    public void deleteById(@NotNull Long id) throws ShipNotFoundException {
+    public void deleteById(Long id) throws ShipNotFoundException {
         if (!repository.existsById(id)) throw new ShipNotFoundException();
         repository.deleteById(id);
     }
